@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Rubik's Cube</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        #ui-container {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; gap: 10px; z-index: 10;
+            background: rgba(255, 255, 255, 0.85); padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);
+            backdrop-filter: blur(10px);
+        }
+        
+        .row { display: flex; gap: 6px; justify-content: center; }
+        
+        button {
+            background: #f0f0f0; border: 1px solid #ddd;
+            color: #333; padding: 8px 14px; border-radius: 6px; cursor: pointer;
+            font-size: 14px; font-weight: 600; font-family: monospace;
+            transition: all 0.15s ease;
+        }
+        button:hover { background: #e0e0e0; transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+        .scramble-btn { background: #ffebeb; color: #c00; border-color: #ffcccc; width: 100%; margin-top: 5px;}
+        .scramble-btn:hover { background: #ffd6d6; }
+
+        #title {
+            position: absolute; top: 20px; left: 190px;
+            color: #222; pointer-events: none;
+            background: rgba(255, 255, 255, 0.9); padding: 15px 25px; border-radius: 12px;
+            border: 1px solid rgba(0,0,0,0.1); backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column;
+        }
+        .title-row { display: flex; align-items: center; justify-content: space-between; }
+        h1 { margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: bold; }
+        .bulb-btn { 
+            background: none; border: none; font-size: 22px; cursor: pointer; padding: 0;
+            pointer-events: auto; transform-origin: center; transition: transform 0.2s;
+            box-shadow: none;
+        }
+        .bulb-btn:hover { transform: scale(1.15); background: none; }
+        p { margin: 5px 0 0 0; opacity: 0.8; font-size: 13px; }
+        .hint { font-size: 11px; opacity: 0.6; margin-top: 8px; font-style: italic; }
+
+        #orientation-panel {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #eee;
+            font-size: 13px; z-index: 20; backdrop-filter: blur(5px);
+            width: 150px; box-sizing: border-box;
+        }
+        #orientation-panel label { display: block; margin-bottom: 8px; font-weight: 600;}
+        select { padding: 6px; border-radius: 4px; border: 1px solid #ccc; width: 100%; margin-top: 4px; font-size: 14px;}
+        .fix-btn { background: #e3f2fd; border-color: #bbdefb; color: #1976d2; width: 100%; margin-top: 10px; font-family: 'Segoe UI', sans-serif;}
+        .fix-btn:hover { background: #bbdefb; }
+
+        #history-panel {
+            position: absolute; top: 20px; left: 20px; bottom: 20px;
+            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #eee;
+            width: 150px; display: flex; flex-direction: column;
+            z-index: 20; backdrop-filter: blur(5px); box-sizing: border-box;
+        }
+        #history-panel h3 { margin: 0 0 10px 0; font-size: 15px; text-align: center; }
+        #history-list {
+            flex-grow: 1; overflow-y: auto; padding: 0; margin: 0 0 10px 0; list-style: none;
+            font-family: monospace; font-size: 14px; display: flex; flex-direction: column; gap: 4px;
+        }
+        #history-list::-webkit-scrollbar { width: 4px; }
+        #history-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        
+        #history-list li {
+            background: #f8f8f8; padding: 4px 8px; border-radius: 4px; border: 1px solid #e0e0e0;
+            display: flex; justify-content: space-between; align-items: center;
+            font-weight: bold; color: #444;
+        }
+        .mini-undo {
+            background: #fff3e0; border: 1px solid #ffe0b2; color: #e65100;
+            padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .mini-undo:hover { background: #ffe0b2; }
+
+        #solution-panel {
+            position: absolute; top: 220px; right: 20px;
+            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #eee;
+            font-size: 13px; z-index: 20; backdrop-filter: blur(5px);
+            width: 150px; display: none; flex-direction: column; box-sizing: border-box;
+        }
+        #solution-steps {
+            list-style: none; padding: 0; margin: 0 0 10px 0; max-height: 180px; overflow-y: auto;
+            font-family: monospace; font-size: 14px; display: flex; flex-direction: column; gap: 4px;
+        }
+        #solution-steps::-webkit-scrollbar { width: 4px; }
+        #solution-steps::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        #solution-steps li {
+            background: #e3f2fd; padding: 4px 8px; border-radius: 4px; border: 1px solid #bbdefb;
+            text-align: center; font-weight: bold; color: #1976d2;
+        }
+        #solution-steps li.active-step {
+            background: #4caf50; color: white; border-color: #388e3c; font-size: 15px;
+        }
+
+        /* NEW EXPAND BUTTON */
+        #expand-btn {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(255, 255, 255, 0.95); padding: 12px 18px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #eee;
+            font-size: 14px; font-weight: bold; color: #333;
+            z-index: 20; backdrop-filter: blur(5px); cursor: pointer;
+            transition: all 0.2s; font-family: 'Segoe UI', sans-serif;
+        }
+        #expand-btn:hover { background: #e3f2fd; color: #1976d2; border-color: #bbdefb; transform: translateY(-2px); }
+
+    </style>
+</head>
+<body>
+    <div id="title">
+        <div class="title-row">
+            <h1>RUBIK'S CUBE</h1>
+            <button class="bulb-btn" onclick="showHint()" title="Get optimal solution!">💡</button>
+        </div>
+        <p>Drag background to rotate camera.</p>
+        <p class="hint">Keyboard Controls Supported:<br>U, D, L, R, F, B, M, E, S<br>(Hold Shift for inverse rotation)</p>
+    </div>
+
+    <div id="history-panel">
+        <h3>Move History</h3>
+        <ul id="history-list"></ul>
+        <button onclick="clearHistory()" style="margin-top:5px; width:100%; background:#fff; border-color:#ccc; font-size:12px; font-family: 'Segoe UI', sans-serif;">🗑 Clear History</button>
+    </div>
+
+    <div id="orientation-panel">
+        <h3 style="margin: 0 0 10px 0; font-size: 15px;">Fix Cube Orientation</h3>
+        <label>Front Face:
+            <select id="front-color" onchange="updateTopOptions()">
+                <option value="Green">🟩 Green</option>
+                <option value="Blue">🟦 Blue</option>
+                <option value="Red">🟥 Red</option>
+                <option value="Orange">🟧 Orange</option>
+                <option value="White">⬜ White</option>
+                <option value="Yellow">🟨 Yellow</option>
+            </select>
+        </label>
+        <label>Top Face:
+            <select id="top-color"></select>
+        </label>
+        <button class="fix-btn" onclick="applyOrientation()">Reorient Cube</button>
+    </div>
+
+    <div id="solution-panel">
+        <h3 style="margin: 0 0 10px 0; font-size: 15px;">Optimal Solution</h3>
+        <div id="solution-loading" style="display:none; font-size: 12px; color: #666; text-align: center;">
+            <span style="font-size:24px;">⏳</span><br>Initializing God's Algorithm...<br>(May take 3-4 seconds)
+        </div>
+        <div id="solution-content" style="display:none;">
+            <ul id="solution-steps"></ul>
+            <button class="fix-btn" onclick="playNextStep()">▶ Play Next Move</button>
+            <button class="scramble-btn" onclick="closeSolution()" style="margin-top: 5px;">Close</button>
+        </div>
+    </div>
+    
+    <!-- EXPAND BUTTON -->
+    <button id="expand-btn" onclick="toggleExpand()">🔍 Expand Core</button>
+    
+    <div id="ui-container">
+        <div class="row">
+            <button onclick="makeMove('U')">U</button>
+            <button onclick="makeMove('D')">D</button>
+            <button onclick="makeMove('L')">L</button>
+            <button onclick="makeMove('R')">R</button>
+            <button onclick="makeMove('F')">F</button>
+            <button onclick="makeMove('B')">B</button>
+        </div>
+        <div class="row">
+            <button onclick="makeMove('U\'')">U'</button>
+            <button onclick="makeMove('D\'')">D'</button>
+            <button onclick="makeMove('L\'')">L'</button>
+            <button onclick="makeMove('R\'')">R'</button>
+            <button onclick="makeMove('F\'')">F'</button>
+            <button onclick="makeMove('B\'')">B'</button>
+        </div>
+        <div class="row">
+            <button onclick="makeMove('M')" title="Middle">M</button>
+            <button onclick="makeMove('E')" title="Equator">E</button>
+            <button onclick="makeMove('S')" title="Standing">S</button>
+        </div>
+        <button class="scramble-btn" onclick="scramble()">🎲 Scramble Randomly</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <script src="https://unpkg.com/cubejs@1.3.2/lib/cube.js"></script>
+    <script src="https://unpkg.com/cubejs@1.3.2/lib/solve.js"></script>
+
+    <script>
+        const movesMap = {
+            "U":  { axis: 'y', value: 1, dir: -1 },
+            "U'": { axis: 'y', value: 1, dir: 1 },
+            "D":  { axis: 'y', value: -1, dir: 1 },
+            "D'": { axis: 'y', value: -1, dir: -1 },
+            "L":  { axis: 'x', value: -1, dir: 1 },
+            "L'": { axis: 'x', value: -1, dir: -1 },
+            "R":  { axis: 'x', value: 1, dir: -1 },
+            "R'": { axis: 'x', value: 1, dir: 1 },
+            "F":  { axis: 'z', value: 1, dir: -1 },
+            "F'": { axis: 'z', value: 1, dir: 1 },
+            "B":  { axis: 'z', value: -1, dir: 1 },
+            "B'": { axis: 'z', value: -1, dir: -1 },
+            "M":  { axis: 'x', value: 0, dir: 1 },
+            "M'": { axis: 'x', value: 0, dir: -1 },
+            "E":  { axis: 'y', value: 0, dir: 1 },
+            "E'": { axis: 'y', value: 0, dir: -1 },
+            "S":  { axis: 'z', value: 0, dir: -1 },
+            "S'": { axis: 'z', value: 0, dir: 1 }
+        };
+
+        let moveHistory = [];
+        let isAnimating = false;
+        let isRewinding = false;
+        let isExpanded = false;
+
+        function getInverseMove(notation) {
+            return notation.endsWith("'") ? notation[0] : notation + "'";
+        }
+
+        async function makeMove(notation, isUndo=false, duration=300) {
+            if (isExpanded) {
+                alert("Please collapse the cube first!");
+                return;
+            }
+            if (isAnimating && !isRewinding) return;
+            const m = movesMap[notation];
+            if (!m) return;
+            
+            if (!isUndo) {
+                moveHistory.push(notation);
+                updateHistoryUI();
+            }
+            
+            await rotateLayer(m.axis, m.value, m.dir, duration);
+        }
+
+        async function undoTo(index) {
+            if (isExpanded) {
+                alert("Please collapse the cube first!");
+                return;
+            }
+            if (isAnimating) return;
+            isRewinding = true;
+
+            const movesToUndo = moveHistory.slice(index);
+            moveHistory.splice(index);
+            updateHistoryUI();
+            
+            for (let i = movesToUndo.length - 1; i >= 0; i--) {
+                const inv = getInverseMove(movesToUndo[i]);
+                await makeMove(inv, true, 80); 
+            }
+            isRewinding = false;
+        }
+
+        function clearHistory() {
+            if (isAnimating) return;
+            moveHistory = [];
+            updateHistoryUI();
+        }
+
+        function updateHistoryUI() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            moveHistory.forEach((m, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${m}</span> <button class="mini-undo" onclick="undoTo(${index})">⏪</button>`;
+                list.appendChild(li);
+            });
+            list.scrollTop = list.scrollHeight;
+        }
+
+        // --- OPTIMAL SOLVER LOGIC ---
+        let optimalSolution = [];
+        let isSolverInitialized = false;
+
+        function getCubeStateString() {
+            const allStickers = [];
+            cubies.forEach(c => {
+                c.children.forEach(child => {
+                    if (child.userData && child.userData.facelet) {
+                        const pos = new THREE.Vector3();
+                        child.getWorldPosition(pos);
+                        allStickers.push({
+                            facelet: child.userData.facelet,
+                            x: Math.round(pos.x * 10) / 10,
+                            y: Math.round(pos.y * 10) / 10,
+                            z: Math.round(pos.z * 10) / 10
+                        });
+                    }
+                });
+            });
+
+            const facelets = {};
+            facelets.U = allStickers.filter(s => s.y > 1.2).sort((a,b) => (a.z - b.z) || (a.x - b.x));
+            facelets.R = allStickers.filter(s => s.x > 1.2).sort((a,b) => (b.y - a.y) || (b.z - a.z));
+            facelets.F = allStickers.filter(s => s.z > 1.2).sort((a,b) => (b.y - a.y) || (a.x - b.x));
+            facelets.D = allStickers.filter(s => s.y < -1.2).sort((a,b) => (b.z - a.z) || (a.x - b.x));
+            facelets.L = allStickers.filter(s => s.x < -1.2).sort((a,b) => (b.y - a.y) || (a.z - b.z));
+            facelets.B = allStickers.filter(s => s.z < -1.2).sort((a,b) => (b.y - a.y) || (b.x - a.x));
+
+            return ['U','R','F','D','L','B'].map(face => {
+                return facelets[face].map(s => s.facelet).join('');
+            }).join('');
+        }
+
+        async function showHint() {
+            if (isExpanded) {
+                alert("Please collapse the cube first!");
+                return;
+            }
+            const panel = document.getElementById('solution-panel');
+            const loading = document.getElementById('solution-loading');
+            const content = document.getElementById('solution-content');
+            
+            panel.style.display = 'flex';
+            loading.style.display = 'block';
+            content.style.display = 'none';
+
+            await new Promise(r => setTimeout(r, 50));
+
+            if (!isSolverInitialized) {
+                Cube.initSolver();
+                isSolverInitialized = true;
+            }
+
+            try {
+                const stateString = getCubeStateString();
+                
+                if (stateString === 'UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB') {
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+                    document.getElementById('solution-steps').innerHTML = '<li>Cube is Solved!</li>';
+                    optimalSolution = [];
+                    return;
+                }
+
+                const cubeObj = Cube.fromString(stateString);
+                const solutionStr = cubeObj.solve();
+                optimalSolution = solutionStr.split(' ').filter(m => m.length > 0);
+
+                loading.style.display = 'none';
+                content.style.display = 'block';
+                renderSolutionSteps();
+            } catch (err) {
+                alert("Solver Error: The cube state might be physically invalid. Scramble again.");
+                closeSolution();
+            }
+        }
+
+        function renderSolutionSteps() {
+            const list = document.getElementById('solution-steps');
+            list.innerHTML = '';
+            optimalSolution.forEach((step, idx) => {
+                const li = document.createElement('li');
+                li.innerText = `${idx + 1}. ${step}`;
+                if (idx === 0) li.className = 'active-step';
+                list.appendChild(li);
+            });
+            list.scrollTop = 0;
+        }
+
+        function closeSolution() {
+            document.getElementById('solution-panel').style.display = 'none';
+        }
+
+        async function playNextStep() {
+            if (optimalSolution.length === 0 || isAnimating) return;
+            const move = optimalSolution.shift();
+            renderSolutionSteps();
+            
+            const base = move[0];
+            const mod = move.length > 1 ? move[1] : '';
+            
+            if (mod === '2') {
+                await makeMove(base, false, 200);
+                await makeMove(base, false, 200);
+            } else {
+                await makeMove(move, false, 300);
+            }
+            
+            if (optimalSolution.length === 0) {
+                document.getElementById('solution-steps').innerHTML = '<li>Solved! 🎉</li>';
+            }
+        }
+
+        // --- 1. ORIENTATION UI LOGIC ---
+        const colorEmojis = {
+            'Green': '🟩 Green', 'Blue': '🟦 Blue', 'Red': '🟥 Red', 
+            'Orange': '🟧 Orange', 'White': '⬜ White', 'Yellow': '🟨 Yellow'
+        };
+        const opposites = {
+            'Green': 'Blue', 'Blue': 'Green',
+            'Red': 'Orange', 'Orange': 'Red',
+            'White': 'Yellow', 'Yellow': 'White'
+        };
+        const allColors = Object.keys(colorEmojis);
+
+        function updateTopOptions() {
+            const front = document.getElementById('front-color').value;
+            const topSelect = document.getElementById('top-color');
+            const currentTop = topSelect.value;
+            
+            topSelect.innerHTML = '';
+            allColors.forEach(c => {
+                if (c !== front && c !== opposites[front]) {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.innerText = colorEmojis[c];
+                    topSelect.appendChild(opt);
+                }
+            });
+            if (topSelect.querySelector(`option[value="${currentTop}"]`)) {
+                topSelect.value = currentTop;
+            }
+        }
+        updateTopOptions(); 
+        document.getElementById('top-color').value = 'White';
+
+        // --- 2. THREE.JS SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        scene.fog = new THREE.FogExp2(0xffffff, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(6, 6, 8); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;
+        controls.minDistance = 4;
+        controls.maxDistance = 25; // Increased max distance for expanded view
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+        
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        fillLight.position.set(-10, -5, -10);
+        scene.add(fillLight);
+
+        // --- 3. CONSTRUCT THE CUBE & INTERNAL CORE ---
+        
+        // INTERNAL CORE MECHANISM
+        const coreGroup = new THREE.Group();
+        
+        // Central sphere is Hot Pink
+        const coreMat = new THREE.MeshStandardMaterial({ color: 0xff007f, metalness: 0.7, roughness: 0.2 });
+        const coreGeo = new THREE.SphereGeometry(0.35, 32, 32);
+        coreGroup.add(new THREE.Mesh(coreGeo, coreMat));
+
+        const screwGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 16);
+        
+        const axes = [
+            [1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]
+        ];
+        
+        axes.forEach((axis, index) => {
+            // Give each screw a distinct bright rainbow color
+            const screwColor = new THREE.Color().setHSL(index / 6, 1.0, 0.5);
+            const screwMat = new THREE.MeshStandardMaterial({ color: screwColor, metalness: 0.8, roughness: 0.2 });
+            const screw = new THREE.Mesh(screwGeo, screwMat);
+            const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), new THREE.Vector3(...axis));
+            screw.applyQuaternion(quaternion);
+            screw.position.set(axis[0]*0.4, axis[1]*0.4, axis[2]*0.4);
+            coreGroup.add(screw);
+        });
+
+        scene.add(coreGroup);
+
+        // OUTER CUBIES
+        const cubeSize = 0.96;
+        const stickerSize = 0.86;
+        
+        const plasticMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.6 });
+        const plasticGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const stickerGeo = new THREE.BoxGeometry(stickerSize, stickerSize, 0.04);
+
+        const hexColors = {
+            'White': 0xFFFFFF, 'Yellow': 0xFFD500, 
+            'Green': 0x009B48, 'Blue': 0x0046AD,
+            'Red': 0xB71234, 'Orange': 0xFF5800
+        };
+
+        const colorToFacelet = {
+            [hexColors['White']]: 'U',
+            [hexColors['Yellow']]: 'D',
+            [hexColors['Green']]: 'F',
+            [hexColors['Blue']]: 'B',
+            [hexColors['Red']]: 'R',
+            [hexColors['Orange']]: 'L'
+        };
+        
+        function createSticker(colorHex, pos, rot) {
+            const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.2, metalness: 0.05 });
+            const mesh = new THREE.Mesh(stickerGeo, mat);
+            
+            const edgesGeom = new THREE.EdgesGeometry(stickerGeo);
+            const edgesMat = new THREE.LineBasicMaterial({ color: 0x222222, linewidth: 2 });
+            const border = new THREE.LineSegments(edgesGeom, edgesMat);
+            mesh.add(border);
+
+            mesh.userData.facelet = colorToFacelet[colorHex];
+            mesh.position.set(...pos);
+            mesh.rotation.set(...rot);
+            return mesh;
+        }
+
+        const pivot = new THREE.Group();
+        scene.add(pivot);
+
+        const cubies = [];
+        const offset = cubeSize / 2;
+
+        for(let x = -1; x <= 1; x++) {
+            for(let y = -1; y <= 1; y++) {
+                for(let z = -1; z <= 1; z++) {
+                    const cubie = new THREE.Mesh(plasticGeo, plasticMat);
+                    cubie.position.set(x, y, z);
+                    
+                    if (x===1 && y===0 && z===0) cubie.userData.centerColor = 'Red';
+                    if (x===-1 && y===0 && z===0) cubie.userData.centerColor = 'Orange';
+                    if (x===0 && y===1 && z===0) cubie.userData.centerColor = 'White';
+                    if (x===0 && y===-1 && z===0) cubie.userData.centerColor = 'Yellow';
+                    if (x===0 && y===0 && z===1) cubie.userData.centerColor = 'Green';
+                    if (x===0 && y===0 && z===-1) cubie.userData.centerColor = 'Blue';
+
+                    if (x === 1) cubie.add(createSticker(hexColors['Red'], [offset, 0, 0], [0, Math.PI/2, 0]));
+                    if (x === -1) cubie.add(createSticker(hexColors['Orange'], [-offset, 0, 0], [0, -Math.PI/2, 0]));
+                    if (y === 1) cubie.add(createSticker(hexColors['White'], [0, offset, 0], [-Math.PI/2, 0, 0]));
+                    if (y === -1) cubie.add(createSticker(hexColors['Yellow'], [0, -offset, 0], [Math.PI/2, 0, 0]));
+                    if (z === 1) cubie.add(createSticker(hexColors['Green'], [0, 0, offset], [0, 0, 0]));
+                    if (z === -1) cubie.add(createSticker(hexColors['Blue'], [0, 0, -offset], [0, Math.PI, 0]));
+
+                    // INTERNAL STALKS (Feet attaching to the core)
+                    const dist = Math.sqrt(x*x + y*y + z*z);
+                    if (dist > 0) {
+                        // Assign a vibrant, unique color to every single stalk based on its 3D coordinates!
+                        const hue = ((x + 1) + (y + 1) * 3 + (z + 1) * 9) / 27;
+                        const stalkColor = new THREE.Color().setHSL(hue, 0.85, 0.45);
+                        const stalkMat = new THREE.MeshStandardMaterial({ color: stalkColor, metalness: 0.4, roughness: 0.3 });
+                        const stalkLength = 0.65; 
+                        const stalkGeo = new THREE.CylinderGeometry(0.08, 0.16, stalkLength, 12);
+                        const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+                        
+                        // Vector pointing from cubie position to the origin (0,0,0)
+                        const dir = new THREE.Vector3(-x, -y, -z).normalize();
+                        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+                        stalk.applyQuaternion(q);
+                        
+                        // Move stalk slightly inwards
+                        stalk.position.copy(dir).multiplyScalar(stalkLength / 2 - 0.1);
+                        cubie.add(stalk);
+                    }
+
+                    scene.add(cubie);
+                    cubies.push(cubie);
+                }
+            }
+        }
+
+        // --- EXPAND ANIMATION LOGIC ---
+        function toggleExpand() {
+            if (isAnimating && !isExpanded) return;
+            isExpanded = !isExpanded;
+            
+            const btn = document.getElementById('expand-btn');
+            btn.innerText = isExpanded ? "📦 Collapse Cube" : "🔍 Expand Core";
+            
+            isAnimating = true; // Locks physical moves while expanded
+
+            cubies.forEach((c, index) => {
+                if (isExpanded) {
+                    c.userData.basePos = c.position.clone(); // Save current state
+                    
+                    // Push outwards along its vector from origin
+                    const targetPos = c.position.clone().normalize().multiplyScalar(c.position.length() * 2.5);
+                    
+                    new TWEEN.Tween(c.position)
+                        .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 800)
+                        .easing(TWEEN.Easing.Back.Out)
+                        .start();
+                } else {
+                    const targetPos = c.userData.basePos;
+                    new TWEEN.Tween(c.position)
+                        .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 600)
+                        .easing(TWEEN.Easing.Cubic.InOut)
+                        .onComplete(() => {
+                            // Unlock only when fully collapsed
+                            if (index === cubies.length - 1) isAnimating = false;
+                        })
+                        .start();
+                }
+            });
+        }
+
+        // --- 4. CORE ROTATION LOGIC ---
+        function rotateLayer(axis, value, direction, duration=300) {
+            return new Promise(resolve => {
+                isAnimating = true;
+
+                const activeCubies = cubies.filter(c => Math.abs(c.position[axis] - value) < 0.1);
+                activeCubies.forEach(c => pivot.attach(c));
+
+                const targetRotation = pivot.rotation[axis] + (Math.PI / 2) * direction;
+
+                new TWEEN.Tween(pivot.rotation)
+                    .to({ [axis]: targetRotation }, duration)
+                    .easing(TWEEN.Easing.Quadratic.InOut)
+                    .onComplete(() => {
+                        pivot.updateMatrixWorld();
+                        activeCubies.forEach(c => {
+                            scene.attach(c);
+                            c.position.x = Math.round(c.position.x);
+                            c.position.y = Math.round(c.position.y);
+                            c.position.z = Math.round(c.position.z);
+                            
+                            const halfPi = Math.PI / 2;
+                            c.rotation.x = Math.round(c.rotation.x / halfPi) * halfPi;
+                            c.rotation.y = Math.round(c.rotation.y / halfPi) * halfPi;
+                            c.rotation.z = Math.round(c.rotation.z / halfPi) * halfPi;
+                        });
+                        pivot.rotation.set(0, 0, 0);
+                        isAnimating = false;
+                        resolve();
+                    })
+                    .start();
+            });
+        }
+
+        function rotateWholeCube(axis, direction) {
+            return new Promise(resolve => {
+                if (isExpanded) {
+                    alert("Please collapse the cube first!");
+                    resolve();
+                    return;
+                }
+                isAnimating = true;
+
+                cubies.forEach(c => pivot.attach(c));
+                const targetRotation = pivot.rotation[axis] + (Math.PI / 2) * direction;
+
+                new TWEEN.Tween(pivot.rotation)
+                    .to({ [axis]: targetRotation }, 200)
+                    .easing(TWEEN.Easing.Quadratic.InOut)
+                    .onComplete(() => {
+                        pivot.updateMatrixWorld();
+                        cubies.forEach(c => {
+                            scene.attach(c);
+                            c.position.x = Math.round(c.position.x);
+                            c.position.y = Math.round(c.position.y);
+                            c.position.z = Math.round(c.position.z);
+                            
+                            const halfPi = Math.PI / 2;
+                            c.rotation.x = Math.round(c.rotation.x / halfPi) * halfPi;
+                            c.rotation.y = Math.round(c.rotation.y / halfPi) * halfPi;
+                            c.rotation.z = Math.round(c.rotation.z / halfPi) * halfPi;
+                        });
+                        pivot.rotation.set(0, 0, 0);
+                        isAnimating = false;
+                        resolve();
+                    })
+                    .start();
+            });
+        }
+
+        async function applyOrientation() {
+            if (isAnimating) return;
+            const frontTarget = document.getElementById('front-color').value;
+            const topTarget = document.getElementById('top-color').value;
+
+            const getCenter = (color) => cubies.find(c => c.userData.centerColor === color);
+
+            for(let i=0; i<4; i++) {
+                if (getCenter(frontTarget).position.z === 1) break;
+                if (Math.abs(getCenter(frontTarget).position.y) === 1) {
+                    await rotateWholeCube('x', 1);
+                } else {
+                    await rotateWholeCube('y', 1);
+                }
+            }
+            if (getCenter(frontTarget).position.z !== 1) {
+                await rotateWholeCube('y', 1);
+                await rotateWholeCube('y', 1);
+            }
+
+            for(let i=0; i<4; i++) {
+                if (getCenter(topTarget).position.y === 1) break;
+                await rotateWholeCube('z', 1);
+            }
+        }
+
+        async function scramble() {
+            if (isExpanded) {
+                alert("Please collapse the cube first!");
+                return;
+            }
+            if (isAnimating) return;
+            const allNotations = Object.keys(movesMap).filter(m => m.length === 1); 
+            // Changed from 20 to 10 to ensure the scramble can always be solved in max 10 moves!
+            for(let i=0; i < 10; i++) {
+                const randomMove = allNotations[Math.floor(Math.random() * allNotations.length)];
+                const finalMove = Math.random() > 0.5 ? randomMove : randomMove + "'";
+                await makeMove(finalMove, false, 150);
+            }
+        }
+
+        // Expose to window
+        window.makeMove = makeMove;
+        window.undoTo = undoTo;
+        window.clearHistory = clearHistory;
+        window.scramble = scramble;
+        window.applyOrientation = applyOrientation;
+        window.updateTopOptions = updateTopOptions;
+        window.showHint = showHint;
+        window.closeSolution = closeSolution;
+        window.playNextStep = playNextStep;
+        window.toggleExpand = toggleExpand;
+
+        // --- 5. KEYBOARD CONTROLS ---
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.altKey || e.metaKey || isRewinding) return;
+            if (isExpanded) return;
+            
+            const key = e.key.toUpperCase();
+            const shift = e.shiftKey;
+            const moveStr = shift ? key + "'" : key;
+            
+            if (movesMap[moveStr]) {
+                makeMove(moveStr);
+            }
+        });
+
+        // --- 6. RENDER LOOP ---
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update(time);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
